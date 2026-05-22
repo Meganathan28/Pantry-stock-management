@@ -1,0 +1,429 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+  <meta name="theme-color" content="#0f0f13" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+  <meta name="apple-mobile-web-app-title" content="Pantry" />
+  <meta name="description" content="Track your food stock and expiry dates" />
+  <link rel="manifest" href="manifest.json" />
+  <link rel="apple-touch-icon" href="icon-192.png" />
+  <title>Pantry Tracker</title>
+  <link href="https://fonts.googleapis.com/css2?family=Sora:wght@300;400;600;700&family=Space+Mono:wght@400;700&display=swap" rel="stylesheet" />
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
+    :root {
+      --bg: #0f0f13;
+      --surface: #1a1a22;
+      --border: #2a2a35;
+      --text: #f0ede8;
+      --muted: #888;
+      --accent: #fbbf24;
+      --green: #22c55e;
+      --amber: #f59e0b;
+      --red: #ef4444;
+    }
+    html, body { height: 100%; background: var(--bg); color: var(--text); font-family: 'Sora', sans-serif; overflow-x: hidden; }
+    ::-webkit-scrollbar { display: none; }
+
+    /* Layout */
+    #app { display: flex; flex-direction: column; height: 100dvh; max-width: 480px; margin: 0 auto; position: relative; }
+    #header { background: var(--surface); padding: env(safe-area-inset-top, 20px) 20px 0; border-bottom: 1px solid var(--border); flex-shrink: 0; }
+    #header-top { padding-top: 16px; display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 14px; }
+    #content { flex: 1; overflow-y: auto; padding: 16px 20px; padding-bottom: calc(80px + env(safe-area-inset-bottom, 0px)); }
+    #fab { position: fixed; bottom: calc(24px + env(safe-area-inset-bottom, 0px)); right: 24px; width: 58px; height: 58px; border-radius: 50%; background: var(--accent); border: none; color: var(--bg); font-size: 28px; font-weight: 700; cursor: pointer; box-shadow: 0 8px 24px rgba(251,191,36,0.4); z-index: 100; display: flex; align-items: center; justify-content: center; transition: transform 0.15s; }
+    #fab:active { transform: scale(0.9); }
+
+    /* Stats */
+    .stats { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; margin-bottom: 14px; }
+    .stat-box { background: #12121a; border-radius: 12px; padding: 10px 6px; text-align: center; border: 1px solid var(--border); }
+    .stat-val { font-size: 20px; font-weight: 700; font-family: 'Space Mono', monospace; }
+    .stat-lbl { font-size: 10px; color: var(--muted); margin-top: 2px; }
+
+    /* Tabs */
+    .tabs { display: flex; border-bottom: 1px solid var(--border); }
+    .tab { flex: 1; padding: 11px; background: none; border: none; border-bottom: 2px solid transparent; color: var(--muted); font-family: 'Sora', sans-serif; font-size: 13px; font-weight: 600; cursor: pointer; transition: all 0.2s; }
+    .tab.active { color: var(--accent); border-bottom-color: var(--accent); }
+
+    /* Notif banner */
+    .notif-banner { background: #1e1a10; border: 1px dashed var(--accent); border-radius: 12px; padding: 10px 14px; margin-bottom: 14px; display: flex; align-items: center; gap: 10px; cursor: pointer; }
+    .notif-banner:active { opacity: 0.8; }
+
+    /* Search & filter */
+    .search-input { width: 100%; background: var(--surface); border: 1px solid var(--border); border-radius: 12px; padding: 11px 14px; color: var(--text); font-size: 14px; font-family: 'Sora'; outline: none; margin-bottom: 12px; transition: border-color 0.2s; }
+    .search-input:focus { border-color: var(--accent); }
+    .filter-row { display: flex; gap: 8px; overflow-x: auto; padding-bottom: 6px; margin-bottom: 14px; }
+    .filter-chip { white-space: nowrap; padding: 6px 14px; border-radius: 20px; border: none; cursor: pointer; font-family: 'Sora'; font-size: 12px; font-weight: 600; transition: all 0.2s; }
+    .filter-chip.active { background: var(--accent); color: var(--bg); }
+    .filter-chip:not(.active) { background: var(--surface); color: var(--muted); }
+
+    /* Item card */
+    .item-card { background: var(--surface); border-radius: 16px; padding: 14px 16px; margin-bottom: 10px; border: 1px solid var(--border); transition: transform 0.1s, opacity 0.3s; animation: fadeIn 0.25s ease; }
+    .item-card:active { transform: scale(0.98); }
+    .item-name { font-weight: 700; font-size: 15px; }
+    .item-meta { display: flex; gap: 10px; flex-wrap: wrap; margin-top: 5px; }
+    .item-meta span { font-size: 12px; color: var(--muted); }
+    .item-expiry { margin-top: 5px; font-size: 12px; font-weight: 600; }
+    .item-actions { display: flex; gap: 4px; margin-left: 8px; }
+    .icon-btn { background: none; border: none; cursor: pointer; padding: 7px; border-radius: 8px; font-size: 16px; transition: background 0.15s; }
+    .icon-btn:active { background: var(--border); }
+
+    /* Status pill */
+    .pill { display: inline-block; padding: 2px 10px; border-radius: 20px; font-size: 11px; font-weight: 700; margin-left: 6px; }
+
+    /* Empty state */
+    .empty { text-align: center; padding: 70px 20px; color: #444; }
+    .empty-icon { font-size: 52px; margin-bottom: 12px; }
+    .empty p { font-weight: 600; font-size: 15px; color: #555; }
+    .empty small { font-size: 12px; margin-top: 4px; display: block; }
+
+    /* Bottom Sheet */
+    .overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.6); z-index: 200; display: flex; align-items: flex-end; backdrop-filter: blur(4px); }
+    .sheet { background: var(--surface); border-radius: 24px 24px 0 0; padding: 20px 20px calc(30px + env(safe-area-inset-bottom, 0px)); width: 100%; max-width: 480px; margin: 0 auto; animation: slideUp 0.3s ease; max-height: 90dvh; overflow-y: auto; }
+    .sheet-handle { width: 40px; height: 4px; background: var(--border); border-radius: 2px; margin: 0 auto 20px; }
+    .sheet-title { font-size: 18px; font-weight: 700; margin-bottom: 18px; }
+    .form-group { margin-bottom: 12px; }
+    .form-label { font-size: 12px; color: var(--muted); margin-bottom: 5px; display: block; }
+    .form-input { width: 100%; background: #12121a; border: 1px solid var(--border); border-radius: 10px; padding: 11px 14px; color: var(--text); font-size: 14px; font-family: 'Sora'; outline: none; transition: border-color 0.2s; }
+    .form-input:focus { border-color: var(--accent); }
+    .row2 { display: grid; grid-template-columns: 2fr 3fr; gap: 10px; }
+    .btn-primary { background: var(--accent); color: var(--bg); border: none; border-radius: 14px; padding: 15px; font-family: 'Sora'; font-weight: 700; font-size: 15px; cursor: pointer; width: 100%; margin-top: 6px; transition: opacity 0.2s; }
+    .btn-primary:active { opacity: 0.8; }
+
+    /* Alert card */
+    .alert-card { border-radius: 16px; padding: 14px 16px; margin-bottom: 10px; border: 1px solid; animation: fadeIn 0.25s ease; display: flex; justify-content: space-between; align-items: center; }
+    .btn-remove { border-radius: 10px; padding: 8px 14px; cursor: pointer; font-family: 'Sora'; font-weight: 600; font-size: 12px; border: 1px solid; transition: opacity 0.2s; }
+    .btn-remove:active { opacity: 0.7; }
+
+    /* Toast */
+    .toast { position: fixed; top: calc(20px + env(safe-area-inset-top, 0px)); left: 50%; transform: translateX(-50%); background: var(--surface); border: 1px solid var(--border); color: var(--text); padding: 10px 20px; border-radius: 24px; font-size: 13px; font-weight: 600; z-index: 999; white-space: nowrap; animation: fadeIn 0.2s ease; box-shadow: 0 4px 20px rgba(0,0,0,0.4); }
+
+    /* Badge */
+    .badge { background: var(--red); color: #fff; border-radius: 20px; padding: 3px 10px; font-size: 11px; font-weight: 700; }
+
+    @keyframes slideUp { from { transform: translateY(100%); opacity: 0; } to { transform: translateY(0); opacity: 1; } }
+    @keyframes fadeIn { from { opacity: 0; transform: translateY(-6px); } to { opacity: 1; transform: translateY(0); } }
+  </style>
+</head>
+<body>
+<div id="app">
+  <!-- Header -->
+  <div id="header">
+    <div id="header-top">
+      <div>
+        <p style="font-size:11px;color:#888;font-family:'Space Mono';letter-spacing:2px;text-transform:uppercase">My Pantry</p>
+        <h1 style="font-size:26px;font-weight:700;line-height:1.2">Stock Tracker</h1>
+      </div>
+      <div id="alert-badge" style="display:none" class="badge"></div>
+    </div>
+
+    <!-- Stats -->
+    <div class="stats">
+      <div class="stat-box"><div class="stat-val" id="s-total" style="color:var(--accent)">0</div><div class="stat-lbl">Total</div></div>
+      <div class="stat-box"><div class="stat-val" id="s-fresh" style="color:var(--green)">0</div><div class="stat-lbl">Fresh</div></div>
+      <div class="stat-box"><div class="stat-val" id="s-expiring" style="color:var(--amber)">0</div><div class="stat-lbl">Expiring</div></div>
+      <div class="stat-box"><div class="stat-val" id="s-expired" style="color:var(--red)">0</div><div class="stat-lbl">Expired</div></div>
+    </div>
+
+    <!-- Notif banner -->
+    <div class="notif-banner" id="notif-banner" onclick="requestNotif()">
+      <span style="font-size:20px">🔔</span>
+      <div>
+        <div style="font-size:12px;font-weight:600;color:var(--accent)">Enable daily alerts</div>
+        <div style="font-size:11px;color:var(--muted)">Tap to get expiry notifications</div>
+      </div>
+      <span style="margin-left:auto;color:var(--accent);font-size:20px">›</span>
+    </div>
+
+    <!-- Tabs -->
+    <div class="tabs">
+      <button class="tab active" id="tab-list" onclick="switchTab('list')">📦 All Items</button>
+      <button class="tab" id="tab-alerts" onclick="switchTab('alerts')">⚠️ Alerts</button>
+    </div>
+  </div>
+
+  <!-- Content -->
+  <div id="content">
+    <!-- LIST VIEW -->
+    <div id="view-list">
+      <input class="search-input" type="text" placeholder="🔍  Search items..." oninput="render()" id="search" />
+      <div class="filter-row" id="filter-row"></div>
+      <div id="items-list"></div>
+    </div>
+
+    <!-- ALERTS VIEW -->
+    <div id="view-alerts" style="display:none">
+      <div id="alerts-list"></div>
+    </div>
+  </div>
+
+  <!-- FAB -->
+  <button id="fab" onclick="openForm()">+</button>
+</div>
+
+<!-- Toast -->
+<div class="toast" id="toast" style="display:none"></div>
+
+<!-- Bottom Sheet -->
+<div class="overlay" id="overlay" style="display:none" onclick="closeFormOnOverlay(event)">
+  <div class="sheet" id="sheet">
+    <div class="sheet-handle"></div>
+    <div class="sheet-title" id="form-title">Add Item</div>
+    <div class="form-group">
+      <label class="form-label">Item Name *</label>
+      <input class="form-input" id="f-name" placeholder="e.g. Bread, Milk, Eggs..." />
+    </div>
+    <div class="form-group">
+      <label class="form-label">Category</label>
+      <select class="form-input" id="f-cat"></select>
+    </div>
+    <div class="form-group row2">
+      <div>
+        <label class="form-label">Quantity</label>
+        <input class="form-input" id="f-qty" type="number" min="1" value="1" />
+      </div>
+      <div>
+        <label class="form-label">Unit</label>
+        <select class="form-input" id="f-unit"></select>
+      </div>
+    </div>
+    <div class="form-group">
+      <label class="form-label">Location</label>
+      <select class="form-input" id="f-loc"></select>
+    </div>
+    <div class="form-group">
+      <label class="form-label">Expiry Date</label>
+      <input class="form-input" id="f-exp" type="date" style="color-scheme:dark" />
+    </div>
+    <button class="btn-primary" onclick="saveItem()">Save Item</button>
+  </div>
+</div>
+
+<script>
+const CATS = ["🍞 Bread & Bakery","🥛 Dairy","🥩 Meat","🥦 Veggies","🍎 Fruits","🥫 Canned","🧴 Sauces","🍫 Snacks","💊 Medicine","📦 Other"];
+const UNITS = ["pcs","g","kg","ml","L","pack","box","bottle","bag"];
+const LOCS = ["Room","Kitchen","Fridge","Freezer"];
+const FILTERS = ["All",...LOCS];
+
+let items = JSON.parse(localStorage.getItem("pantry-v2")||"[]");
+let currentTab = "list";
+let currentFilter = "All";
+let editId = null;
+
+// Populate selects
+CATS.forEach(c => { let o=document.createElement("option"); o.value=c; o.textContent=c; document.getElementById("f-cat").append(o); });
+UNITS.forEach(u => { let o=document.createElement("option"); o.value=u; o.textContent=u; document.getElementById("f-unit").append(o); });
+LOCS.forEach(l => { let o=document.createElement("option"); o.value=l; o.textContent=l; document.getElementById("f-loc").append(o); });
+
+// Filter chips
+const fr = document.getElementById("filter-row");
+FILTERS.forEach(f => {
+  const b = document.createElement("button");
+  b.className = "filter-chip" + (f==="All"?" active":"");
+  b.textContent = f; b.dataset.f = f;
+  b.onclick = () => { currentFilter=f; document.querySelectorAll(".filter-chip").forEach(x=>x.classList.remove("active")); b.classList.add("active"); render(); };
+  fr.append(b);
+});
+
+function save() { localStorage.setItem("pantry-v2", JSON.stringify(items)); }
+
+function getDays(d) {
+  if (!d) return null;
+  const t=new Date(); t.setHours(0,0,0,0);
+  const e=new Date(d); e.setHours(0,0,0,0);
+  return Math.ceil((e-t)/(864e5));
+}
+
+function getStatus(item) {
+  const d = getDays(item.expiryDate);
+  if (d===null) return null;
+  if (d<0) return {label:"Expired!",color:"#ef4444",bg:"#fee2e2"};
+  if (d<=3) return {label:"Expiring Soon",color:"#f59e0b",bg:"#fef3c7"};
+  return {label:"Fresh",color:"#22c55e",bg:"#dcfce7"};
+}
+
+function showToast(msg) {
+  const t = document.getElementById("toast");
+  t.textContent = msg; t.style.display = "block";
+  clearTimeout(t._t); t._t = setTimeout(()=>t.style.display="none", 2500);
+}
+
+function updateStats() {
+  document.getElementById("s-total").textContent = items.length;
+  document.getElementById("s-fresh").textContent = items.filter(i=>{ const s=getStatus(i); return !s||s.color==="#22c55e"; }).length;
+  document.getElementById("s-expiring").textContent = items.filter(i=>getStatus(i)?.color==="#f59e0b").length;
+  document.getElementById("s-expired").textContent = items.filter(i=>getStatus(i)?.color==="#ef4444").length;
+  const alerts = items.filter(i=>{ const d=getDays(i.expiryDate); return d!==null&&d<=3; });
+  const badge = document.getElementById("alert-badge");
+  if (alerts.length) { badge.textContent=alerts.length+" Alert"+(alerts.length>1?"s":""); badge.style.display="block"; }
+  else badge.style.display="none";
+  const tab = document.getElementById("tab-alerts");
+  tab.textContent = alerts.length ? `⚠️ Alerts (${alerts.length})` : "⚠️ Alerts";
+}
+
+function render() {
+  updateStats();
+  renderList();
+  renderAlerts();
+  // Notification check
+  if (Notification.permission==="granted") scheduleNotif();
+}
+
+function renderList() {
+  const q = document.getElementById("search").value.toLowerCase();
+  const list = document.getElementById("items-list");
+  const filtered = items.filter(i=>(currentFilter==="All"||i.location===currentFilter)&&i.name.toLowerCase().includes(q));
+  if (!filtered.length) {
+    list.innerHTML = `<div class="empty"><div class="empty-icon">🧺</div><p>No items found</p><small>Tap + to add your first item</small></div>`;
+    return;
+  }
+  list.innerHTML = filtered.map(item => {
+    const st = getStatus(item);
+    const d = getDays(item.expiryDate);
+    const expiryTxt = d===null?"": d<0?`⛔ Expired ${Math.abs(d)}d ago`: d===0?"⚠️ Expires today!": `📅 Expires in ${d}d`;
+    const expiryColor = d===null?"#888": d<0?"#ef4444": d<=3?"#f59e0b":"#888";
+    return `
+    <div class="item-card">
+      <div style="display:flex;justify-content:space-between;align-items:flex-start">
+        <div style="flex:1;min-width:0">
+          <div style="display:flex;align-items:center;flex-wrap:wrap;gap:4px">
+            <span class="item-name">${item.name}</span>
+            ${st?`<span class="pill" style="background:${st.bg};color:${st.color}">${st.label}</span>`:""}
+          </div>
+          <div class="item-meta">
+            <span>${item.category}</span>
+            <span style="font-family:'Space Mono'">Qty: ${item.quantity} ${item.unit}</span>
+            <span>📍 ${item.location}</span>
+          </div>
+          ${d!==null?`<div class="item-expiry" style="color:${expiryColor}">${expiryTxt}</div>`:""}
+        </div>
+        <div class="item-actions">
+          <button class="icon-btn" onclick="editItem(${item.id})">✏️</button>
+          <button class="icon-btn" onclick="removeItem(${item.id})">🗑️</button>
+        </div>
+      </div>
+    </div>`;
+  }).join("");
+}
+
+function renderAlerts() {
+  const list = document.getElementById("alerts-list");
+  const alerts = items.filter(i=>{ const d=getDays(i.expiryDate); return d!==null&&d<=3; })
+    .sort((a,b)=>getDays(a.expiryDate)-getDays(b.expiryDate));
+  if (!alerts.length) {
+    list.innerHTML = `<div class="empty"><div class="empty-icon">✅</div><p>All good!</p><small>No items expiring soon</small></div>`;
+    return;
+  }
+  list.innerHTML = alerts.map(item => {
+    const st = getStatus(item);
+    const d = getDays(item.expiryDate);
+    const txt = d<0?`Expired ${Math.abs(d)} day${Math.abs(d)>1?"s":""} ago`: d===0?"Expires today!": `Expires in ${d} day${d>1?"s":""}`;
+    return `
+    <div class="alert-card" style="background:${st.color}10;border-color:${st.color}40">
+      <div>
+        <div style="font-weight:700;font-size:15px">${item.name}</div>
+        <div style="color:${st.color};font-size:13px;font-weight:600;margin-top:3px">${txt}</div>
+        <div style="color:var(--muted);font-size:12px;margin-top:2px">${item.category} · 📍 ${item.location}</div>
+      </div>
+      <button class="btn-remove" style="background:${st.color}20;color:${st.color};border-color:${st.color}50" onclick="removeItem(${item.id})">Remove</button>
+    </div>`;
+  }).join("");
+}
+
+function switchTab(tab) {
+  currentTab = tab;
+  document.getElementById("view-list").style.display = tab==="list"?"block":"none";
+  document.getElementById("view-alerts").style.display = tab==="alerts"?"block":"none";
+  document.getElementById("tab-list").classList.toggle("active", tab==="list");
+  document.getElementById("tab-alerts").classList.toggle("active", tab==="alerts");
+}
+
+function openForm(prefill=null) {
+  editId = null;
+  document.getElementById("form-title").textContent = "Add Item";
+  document.getElementById("f-name").value = prefill?.name||"";
+  document.getElementById("f-cat").value = prefill?.category||CATS[0];
+  document.getElementById("f-qty").value = prefill?.quantity||1;
+  document.getElementById("f-unit").value = prefill?.unit||"pcs";
+  document.getElementById("f-loc").value = prefill?.location||"Room";
+  document.getElementById("f-exp").value = prefill?.expiryDate||"";
+  document.getElementById("overlay").style.display = "flex";
+  setTimeout(()=>document.getElementById("f-name").focus(),300);
+}
+
+function editItem(id) {
+  const item = items.find(i=>i.id===id);
+  if (!item) return;
+  editId = id;
+  document.getElementById("form-title").textContent = "Edit Item";
+  openForm(item);
+}
+
+function closeFormOnOverlay(e) { if (e.target===document.getElementById("overlay")) closeForm(); }
+function closeForm() { document.getElementById("overlay").style.display="none"; editId=null; }
+
+function saveItem() {
+  const name = document.getElementById("f-name").value.trim();
+  if (!name) { document.getElementById("f-name").focus(); return; }
+  const item = {
+    id: editId||Date.now(),
+    name,
+    category: document.getElementById("f-cat").value,
+    quantity: +document.getElementById("f-qty").value||1,
+    unit: document.getElementById("f-unit").value,
+    location: document.getElementById("f-loc").value,
+    expiryDate: document.getElementById("f-exp").value,
+  };
+  if (editId) { items = items.map(i=>i.id===editId?item:i); showToast("Item updated ✓"); }
+  else { items.push(item); showToast("Item added ✓"); }
+  save(); render(); closeForm();
+}
+
+function removeItem(id) {
+  items = items.filter(i=>i.id!==id);
+  save(); render(); showToast("Item removed 🗑️");
+}
+
+async function requestNotif() {
+  if (!("Notification" in window)) { showToast("Notifications not supported"); return; }
+  const perm = await Notification.requestPermission();
+  if (perm==="granted") {
+    document.getElementById("notif-banner").style.display="none";
+    scheduleNotif();
+    showToast("🔔 Notifications enabled!");
+    // Schedule daily check via SW
+    if ("serviceWorker" in navigator) {
+      const reg = await navigator.serviceWorker.ready;
+      if (reg.periodicSync) {
+        try { await reg.periodicSync.register("pantry-daily-check", {minInterval: 24*60*60*1000}); }
+        catch(e) {}
+      }
+    }
+  }
+}
+
+function scheduleNotif() {
+  const expired = items.filter(i=>getDays(i.expiryDate)<0);
+  const expiring = items.filter(i=>{ const d=getDays(i.expiryDate); return d!==null&&d>=0&&d<=3; });
+  if (!expired.length&&!expiring.length) return;
+  const lines = [];
+  if (expired.length) lines.push(`🚨 ${expired.map(i=>i.name).join(", ")} expired!`);
+  if (expiring.length) lines.push(`⚠️ ${expiring.map(i=>i.name).join(", ")} expiring soon!`);
+  new Notification("🧺 Pantry Alert", { body: lines.join("\n") });
+}
+
+// Hide notif banner if already granted
+if (Notification.permission==="granted") document.getElementById("notif-banner").style.display="none";
+
+// Service Worker
+if ("serviceWorker" in navigator) {
+  navigator.serviceWorker.register("sw.js").catch(()=>{});
+}
+
+// Initial render
+render();
+</script>
+</body>
+</html>
