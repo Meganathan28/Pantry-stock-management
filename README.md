@@ -20,7 +20,7 @@ Item quantity updates
 Search and filtering
 Clean responsive UI
 Fast and lightweight experience
-Tech Stack {React}
+Tech Stack {HTML, JS}
 Claude-assisted development
 
 Purpose: 
