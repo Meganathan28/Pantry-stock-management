@@ -13,7 +13,7 @@ Stay organized with a clean UI
 
 Built primarily for real-world daily use, focusing on simplicity, speed, and practical functionality.
 
-Features
+Features:
 Inventory management
 Low stock tracking
 Item quantity updates
@@ -23,5 +23,5 @@ Fast and lightweight experience
 Tech Stack {React}
 Claude-assisted development
 
-Purpose
+Purpose: 
 This project was created as a practical productivity tool and portfolio project to demonstrate problem-solving, UI design, and application development skills.
